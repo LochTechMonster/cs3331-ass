@@ -1,0 +1,12 @@
+lon
+whoevencares
+MSG thr New stuff now
+MSG thr Gonna get crazy
+MSG thr Lets go
+DLT thr 3
+DLT thr 7
+MSG thr Properly now
+CRT newThread
+LST
+RDT thr
+SHT

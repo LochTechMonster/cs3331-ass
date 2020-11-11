@@ -168,7 +168,7 @@ def sendLogout():
 
 def sendToSocket(str):
     # TODO: Change separator
-    connectionSocket.send((str + '-*-').encode('utf-8'))
+    connectionSocket.send((str.rstrip() + '-*-').encode('utf-8'))
 
 def receiveResponse():
     return connectionSocket.recv(1024).decode('utf-8').strip()
@@ -510,7 +510,7 @@ def selectCommand():
     elif cmd == 'LST':
         list_threads(username)
     elif cmd == 'RDT':
-        pass
+        read_thread(words[2], username)
     elif cmd == 'UPD':
         pass
     elif cmd == 'DWN':

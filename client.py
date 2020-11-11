@@ -19,14 +19,14 @@ def typeInput(str):
 
 def recvFromServer():
     response = clientSocket.recv(1024).decode('utf-8')
-    print('response: ' + response)
+    #print('response: ' + response)
     commands = response.split('-*-')
     DEBUG_i = 0
     for cmd in commands:
         if cmd == '':
             # Last command
             break
-        print(DEBUG_i)
+        #print(DEBUG_i)
         command = cmd[0]
         if command == 'E':
             typeError(cmd[1:])
