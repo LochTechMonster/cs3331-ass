@@ -7,6 +7,7 @@ user = ''
 
 #FIXME: Remove response print
 #TODO: Change all str variables
+#TODO: Make errors red
 def typeError(str):
     print(str)
 
