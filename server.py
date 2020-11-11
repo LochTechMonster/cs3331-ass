@@ -130,7 +130,7 @@ USAGE: 'RMV threadtitle'
 Check thread exists
 Check user created thread
 Thread is deleted, all files connected are deleted
-Send confirmationn
+Send confirmation
 
 XIT: Exit
 USAGE: 'XIT'
@@ -581,6 +581,34 @@ def download_file(threadtitle, filename, user):
     print("File sent")
     sendMessage("File downloaded")
     
+def remove_thread(threadtitle, user):
+    '''
+    RMV: Remove thread
+    USAGE: 'RMV threadtitle'
+    Check thread exists
+    Check user created thread
+    Thread is deleted, all files connected are deleted
+    Send confirmation
+    '''
+    thread = thread_exists(threadtitle)
+    if not thread:
+        sendError("Thread doesn't exist")
+        return
+    
+    isOwner = False
+    with open(threadtitle, "r") as f:
+        if f.readline().rstrip == user:
+            isOwner = True
+
+    if isOwner:
+        if path.exists(threadtitle):
+            remove(threadtitle)
+        for filename in thread['files']:
+            if path.exists(threadtitle + '-' + filename):
+                remove(threadtitle + '-' + filename)
+    else:
+        sendError("User is not the owner")
+
 
 def selectCommand():
     sendInput('Enter one of the following commands: CRT, MSG, DLT, EDT, LST, RDT, UPD, DWN, RMV, XIT, SHT: ')
@@ -609,7 +637,7 @@ def selectCommand():
     elif cmd == 'DWN':
         download_file(words[2], words[3], username)
     elif cmd == 'RMV':
-        pass
+        remove_thread(words[2], username)
     elif cmd == 'XIT':
         sendMessage('Logging out')
         sendLogout()
@@ -624,7 +652,6 @@ def shutdown():
     sendMessage('Server shutting down')
     sendLogout()
     print('Shutting down')
-    # TODO: Remove all files and stuff
     # TODO: close all current connections
     connectionSocket.close()
     serverSocket.close()
