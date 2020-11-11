@@ -9,6 +9,7 @@ threads = []
 files = []
 
 #FIXME: Remove line numbers from responses
+#TODO: Make ' and " consistent
 '''
 Initial Connection: 
 When connecting, client prompts for a username
@@ -162,11 +163,14 @@ def sendMessage(str):
 def sendInput(str):
     sendToSocket('I' + str)
 
-def sendRequest(str):
-    sendToSocket('R' + str)
+def sendUpload(str):
+    sendToSocket('U' + str)
 
 def sendDownload(str):
     sendToSocket('D' + str)
+
+def sendName(str):
+    sendToSocket('N' + str)
 
 def sendLogout():
     sendMessage('Goodbye')
@@ -221,7 +225,7 @@ def user_login():
                 currUsers.append(username)
                 print(username + ' successful login')
                 sendMessage('206Successful login')
-                sendToSocket('U' + username)
+                sendName(username)
             else:
                 sendError('Incorrect password')
                 
@@ -234,11 +238,13 @@ def user_login():
             sendError('216Username not found')
         # 
         user_register()
-        pass
+        
     
     # u_exists == true
     # check password
 def user_register():
+    # TODO: Check the recursion
+
     # Get username
     sendInput('227Enter your username: ')
     username = receiveResponse()
@@ -269,9 +275,12 @@ def user_register():
         currUsers.append(username)
         print('256New user ' + username + ' registered')
         sendMessage('255User Registered')
-    file.close()
+        file.close()
+    else:
+        user_register()
+    
 
-    sendToSocket('U' + username)
+    sendName(username)
     # Confirmation new user
 
 def create_thread(threadtitle, user):
@@ -514,17 +523,64 @@ def upload_file(threadtitle, filename, user):
     if not thread:
         sendError("Thread doesn't exist")
         return
-    file = open(filename, 'wb')
-    sendRequest(filename)
-    while True:
-        print("Receiving...")
+    
+    sendUpload(filename)
+    filesize = int(receiveResponse())
+    print(filesize)
+    file = open(threadtitle + '-' + filename, 'wb')
+    while filesize > 0:
+        print(str(filesize) + " Receiving...")
         data = connectionSocket.recv(1024)
-        if data == b"DONE":
-            print("File " + filename + " received")
-            break
         file.write(data)
+        filesize -= len(data)
+    print(filesize)
+    print('File ' + filename + ' received')
     file.close()
+
+    file = open(threadtitle, 'a')
+    file.write('\n' + user + ' uploaded ' + filename)
+    file.close()
+
+    thread['files'].append(filename)
     sendMessage('File sent')
+
+def download_file(threadtitle, filename, user):
+    '''
+    DWN: Download file
+    USAGE: 'DWN threadtitle filename'
+    Client sends command, title, filename
+    Check if thread exists
+    Check if file is in thread
+    If match, then send file
+    Client saves as 'filename' no threadtitle
+    Can assume client doesn't have file
+    Once transfer is complete, send confirmation
+    File is not deleted on server end
+    '''
+    print(user + ' issued DWN command')
+
+    thread = thread_exists(threadtitle)
+    if not thread:
+        sendError("Thread doesn't exist")
+        return
+    if filename not in thread['files']:
+        sendError("File doesn't exist in thread")
+        return
+    
+    combinedName = threadtitle + '-' + filename
+    filesize = str(path.getsize(combinedName))
+    sendDownload(filename + ' ' + filesize)
+
+    file = open(combinedName, "rb")
+    data = file.read(1024)
+    while data:
+        print("Sending...")
+        connectionSocket.send(data)
+        data = file.read(1024)
+    file.close()
+    print("File sent")
+    sendMessage("File downloaded")
+    
 
 def selectCommand():
     sendInput('Enter one of the following commands: CRT, MSG, DLT, EDT, LST, RDT, UPD, DWN, RMV, XIT, SHT: ')
@@ -535,7 +591,7 @@ def selectCommand():
         sendError('User not currently logged in')
         return True
     cmd = words[1]
-
+    # Check words, make sure they aren't NULL
     if cmd == 'CRT':
         create_thread(words[2], username)
     elif cmd == 'MSG':
@@ -551,7 +607,7 @@ def selectCommand():
     elif cmd == 'UPD':
         upload_file(words[2], words[3], username)
     elif cmd == 'DWN':
-        pass
+        download_file(words[2], words[3], username)
     elif cmd == 'RMV':
         pass
     elif cmd == 'XIT':
@@ -575,6 +631,9 @@ def shutdown():
     for thread in threads:
         if path.exists(thread['title']):
             remove(thread['title'])
+        for f in thread['files']:
+            if path.exists(thread['title'] + '-' + f):
+                remove(thread['title'] + '-' + f)
     exit()
 
 
