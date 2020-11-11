@@ -4,6 +4,10 @@ from sys import argv
 from os import path, remove
 import re
 
+currUsers = []
+threads = []
+files = []
+
 #FIXME: Remove line numbers from responses
 '''
 Initial Connection: 
@@ -170,7 +174,7 @@ def receiveResponse():
     return connectionSocket.recv(1024).decode('utf-8').strip()
 
 def thread_exists(threadtitle):
-    return threadtitle in threads
+    return next((x for x in threads if x['title'] == threadtitle), False)
 
 def user_login():
     '''
@@ -286,7 +290,9 @@ def create_thread(threadtitle, user):
         file = open(threadtitle, 'w')
         file.write(user)
         file.close()
-        threads.append(threadtitle)
+        global threads
+        threads.append({'title': threadtitle,'files':[]})
+        threads = sorted(threads, key= lambda k: k['title'])
         sendMessage('283Thread ' + threadtitle + ' created')
         print('Thread ' + threadtitle + ' created')
 
@@ -461,8 +467,27 @@ def list_threads(user):
     if threads == []:
         sendMessage('No threads to list')
     else:
-        for title in threads.sort():
-            sendMessage(title)
+        for thread in threads:
+            sendMessage(thread['title'])
+
+def read_thread(threadtitle, user):
+    '''
+    RDT: Read thread
+    USAGE: 'RDT threadtitle'
+    Sends the file minus the first line to the client
+    Client displays all contents and info of uploaded files
+    If thread doesn't exist give error
+    '''
+    print(user + ' issued RDT command')
+    if not thread_exists(threadtitle):
+        sendError("Thread doesn't exist")
+        return
+    
+    with open(threadtitle, 'r') as f:
+        f.readline()
+        for line in f:
+            sendMessage(line)
+
 
 def selectCommand():
     sendInput('Enter one of the following commands: CRT, MSG, DLT, EDT, LST, RDT, UPD, DWN, RMV, XIT, SHT: ')
@@ -510,14 +535,13 @@ def shutdown():
     # TODO: close all current connections
     connectionSocket.close()
     serverSocket.close()
-    for title in threads:
-        if path.exists(title):
-            remove(title)
+    for thread in threads:
+        if path.exists(thread['title']):
+            remove(thread['title'])
     exit()
 
 
-currUsers = []
-threads = []
+
 
 
 #try:
