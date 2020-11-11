@@ -1,7 +1,7 @@
 #coding: utf-8
 from socket import *
 from sys import argv
-from os import path #, remove
+from os import path, remove
 import re
 
 #FIXME: Remove line numbers from responses
@@ -170,7 +170,7 @@ def receiveResponse():
     return connectionSocket.recv(1024).decode('utf-8').strip()
 
 def thread_exists(threadtitle):
-    return path.isfile(threadtitle)
+    return threadtitle in threads
 
 def user_login():
     '''
@@ -286,6 +286,7 @@ def create_thread(threadtitle, user):
         file = open(threadtitle, 'w')
         file.write(user)
         file.close()
+        threads.append(threadtitle)
         sendMessage('283Thread ' + threadtitle + ' created')
         print('Thread ' + threadtitle + ' created')
 
@@ -446,6 +447,23 @@ def edit_message(threadtitle, msgNumber, message, user):
         sendMessage('Message edited')
         print('Message edited')
 
+def list_threads(user):
+    '''
+    LST: List threads
+    USAGE: 'LST'
+    No arguments
+    Lists all thread titles
+    Client prints the list in the terminal
+        one thread per line
+    If no threads, then give that message to user
+    '''
+    print(user + ' issued LST command')
+    if threads == []:
+        sendMessage('No threads to list')
+    else:
+        for title in threads.sort():
+            sendMessage(title)
+
 def selectCommand():
     sendInput('Enter one of the following commands: CRT, MSG, DLT, EDT, LST, RDT, UPD, DWN, RMV, XIT, SHT: ')
     resp = receiveResponse()
@@ -465,7 +483,7 @@ def selectCommand():
     elif cmd == 'EDT':
         edit_message(words[2], words[3], words[4:], username)
     elif cmd == 'LST':
-        pass
+        list_threads(username)
     elif cmd == 'RDT':
         pass
     elif cmd == 'UPD':
@@ -492,6 +510,9 @@ def shutdown():
     # TODO: close all current connections
     connectionSocket.close()
     serverSocket.close()
+    for title in threads:
+        if path.exists(title):
+            remove(title)
     exit()
 
 
