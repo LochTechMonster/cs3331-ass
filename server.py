@@ -162,6 +162,12 @@ def sendMessage(str):
 def sendInput(str):
     sendToSocket('I' + str)
 
+def sendRequest(str):
+    sendToSocket('R' + str)
+
+def sendDownload(str):
+    sendToSocket('D' + str)
+
 def sendLogout():
     sendMessage('Goodbye')
     sendToSocket('L')
@@ -488,6 +494,37 @@ def read_thread(threadtitle, user):
         for line in f:
             sendMessage(line)
 
+def upload_file(threadtitle, filename, user):
+    '''
+    UPD: Upload file
+    USAGE: 'UPD threadtitle filename'
+    Assume file is binary
+    Client sends command and thread
+    After check that thread exists
+    Then sends filename and username
+    Then sends file
+    Stores file as 'threadtitle-filename'
+        keep current extension in name
+    Assume filename is unique
+    Append to thread file 'username uploaded filename'
+    Those messages are sent with RDT
+    '''
+    print(user + ' issued UPD command')
+    thread = thread_exists(threadtitle)
+    if not thread:
+        sendError("Thread doesn't exist")
+        return
+    file = open(filename, 'wb')
+    sendRequest(filename)
+    while True:
+        print("Receiving...")
+        data = connectionSocket.recv(1024)
+        if data == b"DONE":
+            print("File " + filename + " received")
+            break
+        file.write(data)
+    file.close()
+    sendMessage('File sent')
 
 def selectCommand():
     sendInput('Enter one of the following commands: CRT, MSG, DLT, EDT, LST, RDT, UPD, DWN, RMV, XIT, SHT: ')
@@ -512,7 +549,7 @@ def selectCommand():
     elif cmd == 'RDT':
         read_thread(words[2], username)
     elif cmd == 'UPD':
-        pass
+        upload_file(words[2], words[3], username)
     elif cmd == 'DWN':
         pass
     elif cmd == 'RMV':

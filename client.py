@@ -17,6 +17,18 @@ def typeInput(str):
     response = input(str)
     sendToServer(response)
 
+def typeUpload(str):
+    file = open(str, "rb")
+    data = file.read(1024)
+    while data:
+        print("Sending...")
+        clientSocket.send(data)
+        data = file.read(1024)
+    clientSocket.send(b"DONE")
+
+def typeDownload(str):
+    pass
+
 def recvFromServer():
     response = clientSocket.recv(1024).decode('utf-8')
     #print('response: ' + response)
@@ -34,6 +46,10 @@ def recvFromServer():
             typeMessage(cmd[1:])
         elif command == 'I':
             typeInput(cmd[1:])
+        elif command == 'R':
+            typeUpload(cmd[1:])
+        elif command == 'D':
+            typeDownload(cmd[1:])
         elif command == 'U':
             global user
             user = cmd[1:]
