@@ -1,7 +1,7 @@
 #coding: utf-8
 from socket import *
 from sys import argv
-from os import path, SEEK_END#, remove
+from os import path #, remove
 import re
 
 #FIXME: Remove line numbers from responses
@@ -163,6 +163,7 @@ def sendLogout():
     sendToSocket('L')
 
 def sendToSocket(str):
+    # TODO: Change separator
     connectionSocket.send((str + '-*-').encode('utf-8'))
 
 def receiveResponse():
@@ -367,6 +368,7 @@ def delete_message(threadtitle, msgNumber, user):
     found = False
     with open(threadtitle, "r+") as f:
         thread = f.readlines()
+        # Clears file then rewrites it
         f.seek(0)
         f.truncate()
         f.write(thread[0].strip())
@@ -374,31 +376,78 @@ def delete_message(threadtitle, msgNumber, user):
             #print(line)
             if is_message(line):
                 if found:
-                    # after the message
+                    # After the message
                     msg = ' '.join(line.split()[1:])
                     f.write('\n' + str(get_msgnumber(line) - 1) + ' ' + msg)
                     continue
                 if get_msgnumber(line) == msgNum:
-                    if user + ':' == line.split()[1]:
+                    if (user + ':') == line.split()[1]:
+                        found = True
+                    else:
                         sendError("Message cannot be deleted")
                         f.write('\n' + line.rstrip())
-                    found = True
                 else:
                     # Before the message
                     f.write('\n' + line.strip())
             else:
                 f.write('\n' + line.strip())
 
+    if found:
+        sendMessage('Line deleted')
 
-
-    #TODO: check if user posted
-    sendMessage('Line deleted')
+def edit_message(threadtitle, msgNumber, message, user):
+    '''
+    EDT: Edit message
+    USAGE: 'EDT threadtitle messagenumber message'
+    Message can only be edited by the user who posted that message
+    Message is the updated message
+    Check:
+        Thread exists
+        Message number exists
+        If user sent message
+    Replace original message with the replacement
+        Message number and username remain unchanged
+    '''
+    print(user + ' issued EDT command')
+    if not thread_exists(threadtitle):
+        sendError("358Thread doesn't exist")
+        return
     
+    msgNum = int(msgNumber)
+    if msgNum < 1 or msgNum > get_lastnumber(threadtitle):
+        sendError("Message number doesn't exist")
+        return
+    
+    found = False
+    with open(threadtitle, "r+") as f:
+        thread = f.readlines()
+        # Clears file then rewrites it
+        f.seek(0)
+        f.truncate()
+        f.write(thread[0].strip())
+        for line in thread[1:]:
+            #print(line)
+            if is_message(line):
+                if not found and get_msgnumber(line) == msgNum:
+                    if (user + ':') == line.split()[1]:
+                        found = True
+                        msg = ' '.join(message)
+                        prefix = ' '.join(line.split()[0:2])
+                        f.write('\n' + prefix + ' ' + msg)
+                    else:
+                        sendError("Message cannot be edited")
+                        f.write('\n' + line.rstrip())
+                else:
+                    f.write('\n' + line.strip())
+            else:
+                f.write('\n' + line.strip())
 
-
+    if found:
+        sendMessage('Message edited')
+        print('Message edited')
 
 def selectCommand():
-    sendInput('Enter one of the following commands: CRT, MSG, DLT, EDT, LST, RDT, UPD, DWN, RMV, XIT, SHT:')
+    sendInput('Enter one of the following commands: CRT, MSG, DLT, EDT, LST, RDT, UPD, DWN, RMV, XIT, SHT: ')
     resp = receiveResponse()
     words = resp.split()
     username = words[0]
@@ -414,7 +463,7 @@ def selectCommand():
     elif cmd == 'DLT':
         delete_message(words[2], words[3], username)
     elif cmd == 'EDT':
-        pass
+        edit_message(words[2], words[3], words[4:], username)
     elif cmd == 'LST':
         pass
     elif cmd == 'RDT':
@@ -447,6 +496,8 @@ def shutdown():
 
 
 currUsers = []
+threads = []
+
 
 #try:
 if __name__ == "__main__":
