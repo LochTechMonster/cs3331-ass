@@ -8,20 +8,30 @@ user = ''
 #FIXME: Remove response print
 #TODO: Change all str variables
 #TODO: Make errors red
-def typeError(str):
-    print(str)
+def recvError(msg):
+    print(msg)
 
-def typeMessage(str):
-    print(str)
+def recvMessage(msg):
+    print(msg)
 
-def typeInput(str):
-    response = input(str + ' ')
+def recvInput(msg):
+    response = input(msg + ' ')
     sendToServer(response)
 
-def typeRequest(str):
+def recvInputUser(msg):
+    response = input(msg + ' ')
+    sendToServer(response)
+
+def recvInputComm(msg):
     pass
 
-def typeUpload(filename):
+def recvInputLogin(msg):
+    pass
+
+def recvInputRegister(msg):
+    pass
+
+def recvUpload(filename):
     filesize = str(path.getsize(filename))
     print(filesize)
     soc.send(filesize.encode('utf-8'))
@@ -33,9 +43,8 @@ def typeUpload(filename):
         data = file.read(1024)
     file.close()
     print("Done")
-    
 
-def typeDownload(string):
+def recvDownload(string):
     filename = string.split()[0]
     filesize = int(string.split()[1])
     file = open(filename, 'wb')
@@ -59,15 +68,21 @@ def recvFromServer():
         #print(DEBUG_i)
         command = cmd[0]
         if command == 'E':
-            typeError(cmd[1:])
+            recvError(cmd[1:])
         elif command == 'M':
-            typeMessage(cmd[1:])
+            recvMessage(cmd[1:])
         elif command == 'I':
-            typeInput(cmd[1:])
+            recvInputUser(cmd[1:])
+        elif command == 'C':
+            recvInputComm(cmd[1:])
+        elif command == 'L':
+            recvInputLogin(cmd[1:])
+        elif command == 'R':
+            recvInputRegister(cmd[1:])
         elif command == 'U':
-            typeUpload(cmd[1:])
+            recvUpload(cmd[1:])
         elif command == 'D':
-            typeDownload(cmd[1:])
+            recvDownload(cmd[1:])
         elif command == 'N':
             global user
             user = cmd[1:]
@@ -80,8 +95,20 @@ def logout():
     soc.close()
     exit()
 
-def sendToServer(str):
-    soc.send((user + ' ' + str).encode('utf-8'))
+def sendToServer(msg):
+    soc.send((msg).encode('utf-8'))
+
+def sendCommand(resp):
+    soc.send(('C' + user + ' ' + resp).encode('utf-8'))
+
+def sendUsername(resp):
+    soc.send(('U' + resp).encode('utf-8'))
+
+def sendLogin(resp):
+    soc.send(('L' + user + ' ' + resp)).encode('utf-8')
+
+def sendRegister(resp):
+    soc.send(('R' + user + ' ' + resp)).encode('utf-8')
 
 
 if __name__ == "__main__":

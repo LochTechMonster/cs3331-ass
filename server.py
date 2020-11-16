@@ -152,33 +152,42 @@ Exits program
 
 '''
 
-def sendError(str, clientAddress):
-    print('ERROR: ' + str)
-    sendToSocket('E' + str, clientAddress)
+def sendError(msg, addr):
+    print('ERROR: ' + msg)
+    sendToSocket('E' + msg, addr)
     #FIXME: send different messages for all errors to user and to server
 
-def sendMessage(str, clientAddress):
-    sendToSocket('M' + str, clientAddress)
+def sendMessage(msg, addr):
+    sendToSocket('M' + msg, addr)
 
-def sendInput(str, clientAddress):
-    sendToSocket('I' + str, clientAddress)
+def sendInputUser(msg, addr):
+    sendToSocket('I' + msg, addr)
 
-def sendUpload(str, clientAddress):
-    sendToSocket('U' + str, clientAddress)
+def sendInputComm(msg, addr):
+    sendToSocket('C' + msg, addr)
 
-def sendDownload(str, clientAddress):
-    sendToSocket('D' + str, clientAddress)
+def sendInputLogin(msg, addr):
+    sendToSocket('L' + msg, addr)
 
-def sendName(str, clientAddress):
-    sendToSocket('N' + str, clientAddress)
+def sendInputRegister(msg, addr):
+    sendToSocket('R' + msg, addr)
 
-def sendLogout(clientAddress):
-    sendMessage('Goodbye', clientAddress)
-    sendToSocket('L', clientAddress)
+def sendUpload(msg, addr):
+    sendToSocket('U' + msg, addr)
 
-def sendToSocket(str, clientAddress):
+def sendDownload(msg, addr):
+    sendToSocket('D' + msg, addr)
+
+def sendName(msg, addr):
+    sendToSocket('N' + msg, addr)
+
+def sendLogout(addr):
+    sendMessage('Goodbye', addr)
+    sendToSocket('L', addr)
+
+def sendToSocket(msg, addr):
     # TODO: Change separator
-    connectionSocket.sendto((str.rstrip() + '-*-').encode('utf-8'), clientAddress)
+    connectionSocket.sendto((msg.rstrip() + '-*-').encode('utf-8'), addr)
 
 def receiveResponse():
     return connectionSocket.recv(1024).decode('utf-8').strip()
@@ -242,6 +251,7 @@ def user_login(clientAddress):
     
     # u_exists == true
     # check password
+
 def user_register(clientAddress):
     # TODO: Check the recursion
 
@@ -523,7 +533,6 @@ def upload_file(threadtitle, filename, user, clientAddress):
     if not thread:
         sendError("Thread doesn't exist", clientAddress)
         return
-    
     sendUpload(filename, clientAddress)
     filesize = int(receiveResponse())
     print(filesize)
@@ -610,7 +619,7 @@ def remove_thread(threadtitle, user, clientAddress):
         sendError("User is not the owner", clientAddress)
 
 
-def selectCommand(clientAddress):
+def selectCommand(resp, clientAddress):
     sendInput('Enter one of the following commands: CRT, MSG, DLT, EDT, LST, RDT, UPD, DWN, RMV, XIT, SHT: ', clientAddress)
     resp = receiveResponse()
     words = resp.split()
@@ -669,11 +678,43 @@ import threading
 t_lock = threading.Condition()
 connectedClients = []
 
+#FIXME: 
 def recv_handler():
     while 1:
         message, ClientAddress = serverSocket.recvfrom(1024)
         with t_lock:
             comm = message[0]
+            if comm == 'C':
+                typeCommand(message[1:], ClientAddress)
+            elif comm == 'U':
+                typeUsername(message[1:], ClientAddress)
+            elif comm == 'L':
+                typeLogin(message[1:], ClientAddress)
+            elif comm == 'R':
+                typeRegister(message[1:], ClientAddress)
+
+# Input types
+
+# Command: Response to the send command
+#          Cuser comm arg1 arg2....
+# Username: Username to check if it exists
+#           Uuser
+# Login: Login attempt with user and password
+#        Luser password
+# Register: Register a new user, do if username doesn't exist
+#        Ruser password
+
+def typeCommand(message, address):
+    pass
+
+def typeUsername(message, address):
+    pass
+
+def typeLogin(message, address):
+    pass
+
+def typeRegister(message, address):
+    pass
 
 #try:
 if __name__ == "__main__":
