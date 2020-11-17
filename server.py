@@ -3,153 +3,156 @@ from socket import *
 from sys import argv
 from os import path, remove
 import re
+import threading
 
+t_lock = threading.Condition()
+connectedClients = []
 currUsers = []
 threads = []
-files = []
+server_port = 12000
+admin_passwd = None 
 
 #FIXME: Remove line numbers from responses
 #TODO: Make ' and " consistent
 '''
-Initial Connection: 
-When connecting, client prompts for a username
- - Receive username
- - Check credentials.txt for a match
-If name exists send confirmation to client
- - Client prompts for password
- - Receive password
-If password match then confirm to client
-If doesn't then send error to client
+    Initial Connection: 
+    When connecting, client prompts for a username
+    - Receive username
+    - Check credentials.txt for a match
+    If name exists send confirmation to client
+    - Client prompts for password
+    - Receive password
+    If password match then confirm to client
+    If doesn't then send error to client
 
-If things don't match then:
- - Client prompts for username
- - If doesn't exist, prompt for new password
-Creates new line in credentials.txt
- - Send confirmation to client
- - Client sends message to user
-Make sure credentials.txt has write permissions
+    If things don't match then:
+    - Client prompts for username
+    - If doesn't exist, prompt for new password
+    Creates new line in credentials.txt
+    - Send confirmation to client
+    - Client sends message to user
+    Make sure credentials.txt has write permissions
 
-Multi-threading version:
-Keep track of logged in accounts
-Make sure connecting users aren't using the same account
+    Multi-threading version:
+    Keep track of logged in accounts
+    Make sure connecting users aren't using the same account
 
 
-Forum Ops:
-Commands are sent as uppercase
-Arguments are separated by one space and will be one word long
-  Except Messages which can contain whitespace
-If anything doesn't follow usage specs then send error to user
-  User prompted to pick a command again
-Client sends username on every command
+    Forum Ops:
+    Commands are sent as uppercase
+    Arguments are separated by one space and will be one word long
+    Except Messages which can contain whitespace
+    If anything doesn't follow usage specs then send error to user
+    User prompted to pick a command again
+    Client sends username on every command
 
-11 Different commands
+    11 Different commands
 
-CRT: Create thread
-USAGE: 'CRT threadtitle'
-Thread titles are one word long
-Client sends command, title of thread and username
-each thread is a text file with the name 'threadtitle' (no .txt)
-First line is the username of who created the thread
-The rest of the lines are messages, added in chronological order (just append to the end)
-Server checks if a thread exists with the same title (sends error)
-If doesn't exist, create file
-Send confirmation to client
+    CRT: Create thread
+    USAGE: 'CRT threadtitle'
+    Thread titles are one word long
+    Client sends command, title of thread and username
+    each thread is a text file with the name 'threadtitle' (no .txt)
+    First line is the username of who created the thread
+    The rest of the lines are messages, added in chronological order (just append to the end)
+    Server checks if a thread exists with the same title (sends error)
+    If doesn't exist, create file
+    Send confirmation to client
 
-MSG: Post Message
-USAGE: 'MSG threadtitle message'
-The message can contain spaces
-If a thread with the title doesn't exist, send error
-Append message and username to thread file
-'messagenumber username: message'
-Messages start at 1
-Send confirmation to client
+    MSG: Post Message
+    USAGE: 'MSG threadtitle message'
+    The message can contain spaces
+    If a thread with the title doesn't exist, send error
+    Append message and username to thread file
+    'messagenumber username: message'
+    Messages start at 1
+    Send confirmation to client
 
-DLT: Delete message
-USAGE: 'DLT threadtitle messagenumber'
-Message can only be deleted by the user who posted the message
-Check:
-  Thread exists
-  Message number exists
-  If user sent message
-Delete line in thread
-  Remove line in the file
-  move all other messages up by one line
-  update message numbers appropriately
+    DLT: Delete message
+    USAGE: 'DLT threadtitle messagenumber'
+    Message can only be deleted by the user who posted the message
+    Check:
+    Thread exists
+    Message number exists
+    If user sent message
+    Delete line in thread
+    Remove line in the file
+    move all other messages up by one line
+    update message numbers appropriately
 
-EDT: Edit message
-USAGE: 'EDT threadtitle messagenumber message'
-Message can only be edited by the user who posted that message
-Message is the updated message
-Check:
-  Thread exists
-  Message number exists
-  If user sent message
-Replace original message with the replacement
-  Message number and username remain unchanged
+    EDT: Edit message
+    USAGE: 'EDT threadtitle messagenumber message'
+    Message can only be edited by the user who posted that message
+    Message is the updated message
+    Check:
+    Thread exists
+    Message number exists
+    If user sent message
+    Replace original message with the replacement
+    Message number and username remain unchanged
 
-LST: List threads
-USAGE: 'LST'
-No arguments
-Lists all thread titles
-Client prints the list in the terminal
-  one thread per line
-If no threads, then give that message to user
+    LST: List threads
+    USAGE: 'LST'
+    No arguments
+    Lists all thread titles
+    Client prints the list in the terminal
+    one thread per line
+    If no threads, then give that message to user
 
-RDT: Read thread
-USAGE: 'RDT threadtitle'
-Sends the file minus the first line to the client
-Client displays all contents and info of uploaded files
-If thread doesn't exist give error
+    RDT: Read thread
+    USAGE: 'RDT threadtitle'
+    Sends the file minus the first line to the client
+    Client displays all contents and info of uploaded files
+    If thread doesn't exist give error
 
-UPD: Upload file
-USAGE: 'UPD threadtitle filename'
-Assume file is binary
-Client sends command and thread
-After check that thread exists
-Then sends filename and username
-Then sends file
-Stores file as 'threadtitle-filename'
-  keep current extension in name
-Assume filename is unique
-Append to thread file 'username uploaded filename'
-Those messages are sent with RDT
+    UPD: Upload file
+    USAGE: 'UPD threadtitle filename'
+    Assume file is binary
+    Client sends command and thread
+    After check that thread exists
+    Then sends filename and username
+    Then sends file
+    Stores file as 'threadtitle-filename'
+    keep current extension in name
+    Assume filename is unique
+    Append to thread file 'username uploaded filename'
+    Those messages are sent with RDT
 
-DWN: Download file
-USAGE: 'DWN threadtitle filename'
-Client sends command, title, filename
-Check if thread exists
-Check if file is in thread
-If match, then send file
-Client saves as 'filename' no threadtitle
-Can assume client doesn't have file
-Once transfer is complete, send confirmation
-File is not deleted on server end
+    DWN: Download file
+    USAGE: 'DWN threadtitle filename'
+    Client sends command, title, filename
+    Check if thread exists
+    Check if file is in thread
+    If match, then send file
+    Client saves as 'filename' no threadtitle
+    Can assume client doesn't have file
+    Once transfer is complete, send confirmation
+    File is not deleted on server end
 
-RMV: Remove thread
-USAGE: 'RMV threadtitle'
-Check thread exists
-Check user created thread
-Thread is deleted, all files connected are deleted
-Send confirmation
+    RMV: Remove thread
+    USAGE: 'RMV threadtitle'
+    Check thread exists
+    Check user created thread
+    Thread is deleted, all files connected are deleted
+    Send confirmation
 
-XIT: Exit
-USAGE: 'XIT'
-Closes TCP connection
-Gives goodbye message to user
-Update logged in users
+    XIT: Exit
+    USAGE: 'XIT'
+    Closes TCP connection
+    Gives goodbye message to user
+    Update logged in users
 
-SHT: Shutdown
-USAGE: 'SHT admin_password'
-Checks admin password
-Sends a shutdown message to all clients
-Closes all TCP messages
-Deletes all file created by the server
-  All threads
-  All uploaded files
-  credentials file
-All sockets closed
-Exits program
-
+    SHT: Shutdown
+    USAGE: 'SHT admin_password'
+    Checks admin password
+    Sends a shutdown message to all clients
+    Closes all TCP messages
+    Deletes all file created by the server
+    All threads
+    All uploaded files
+    credentials file
+    All sockets closed
+    Exits program
 '''
 
 def sendError(msg, addr):
@@ -613,14 +616,11 @@ def remove_thread(threadtitle, user, addr):
             isOwner = True
 
     if isOwner:
-        if path.exists(threadtitle):
-            remove(threadtitle)
+        removeFile(threadtitle)
         for filename in thread['files']:
-            if path.exists(threadtitle + '-' + filename):
-                remove(threadtitle + '-' + filename)
+            removeFile(threadtitle + '-' + filename)
     else:
         sendError("User is not the owner", addr)
-
 
 def selectCommand(resp, addr):
     sendInputComm(addr)
@@ -681,16 +681,15 @@ def shutdown(password, addr):
     connectionSocket.close()
     serverSocket.close()
     for thread in threads:
-        if path.exists(thread['title']):
-            remove(thread['title'])
+        removeFile(thread['title'])
         for f in thread['files']:
-            if path.exists(thread['title'] + '-' + f):
-                remove(thread['title'] + '-' + f)
+            removeFile(thread['title'] + '-' + f)
     exit()
 
-import threading
-t_lock = threading.Condition()
-connectedClients = []
+def removeFile(filename):
+    '''Safely removes files'''
+    if path.exists(filename):
+        remove(filename)
 
 #FIXME: 
 def recv_handler():
@@ -699,6 +698,7 @@ def recv_handler():
         with t_lock:
             if addr not in connectedClients:
                 # New user
+                print('New client connected')
                 sendInputUser('Enter your username:')
             comm = message[0]
             if comm == 'C':
@@ -712,25 +712,28 @@ def recv_handler():
             elif comm == 'R':
                 typeRegister(message[1:], addr)
 
-# Input types:
-#
-# Command: Response to the send command
-#   Cuser comm arg1 arg2....
-# Username: Username to check if it exists
-#   Uuser
-# Register Name: If username doesn't exist, prompt to register
-#   Nname
-# Login: Login attempt with user and password
-#   Luser password
-# Register: Register a new user, do if username doesn't exist
-#   Ruser password
+'''
+    Input types:
+
+    Command: Response to the send command
+        Cuser comm arg1 arg2....
+    Username: Check username exists, if it does move to login
+            If username doesn't exist prompt username again,
+        Uuser
+    Register Name: Check username exists, if it does move to login
+                If username doesn't exist, prompt to register
+        Nname
+    Login: Login attempt with user and password
+        Luser password
+    Register: Register a new user, do if username doesn't exist
+        Ruser password
+'''
 
 def typeCommand(message, addr):
     words = message.split()
     username = words[0]
     if username not in currUsers:
         sendError('User not currently logged in', addr)
-        return True
     cmd = words[1]
     args = len(words)
 
@@ -797,13 +800,12 @@ def findUsername(user):
 
 def typeRegisterName(message, addr):
     result = findUsername(message)
+    sendName(message.split()[0])
     if result:
-        sendName(result.split()[0])
         sendInputLogin('Enter password:', addr)
     else:
         sendMessage('Username not found, registering new user', addr)
         sendInputRegister('Input new password:')
-
 
 def typeLogin(message, addr):
     '''
@@ -826,14 +828,11 @@ def typeLogin(message, addr):
         print(inUser + ' incorrect password')
         sendInputLogin('Enter username:', addr)
 
-
 def typeRegister(message, addr):
     '''
     Adds username and password to credentials
     Then adds to logged in
     '''
-    
-
     with open('credentials.txt', 'a') as f:
         f.write(message + '\n')
         print('New user ' + message.split()[0] + ' registered')
@@ -845,34 +844,30 @@ def typeRegister(message, addr):
 
 
 #try:
-if __name__ == "__main__":
-    #using the socket module
+#using the socket module
 
-    #Define connection (socket) parameters
-    #Address + Port no
-    #Server would be running on the same host as Client
-    # change this port number if required
-    server_port = 12000
-    admin_passwd = None 
+#Define connection (socket) parameters
+#Address + Port no
+#Server would be running on the same host as Client
+# change this port number if required
+if len(argv) == 3:
+    server_port = int(argv[1])
+    admin_passwd = argv[2]
+else:
+    print("Correct usage: python3 server.py server_port admin_passwd")
+    exit()
+serverSocket = socket(AF_INET, SOCK_STREAM)
+serverSocket.bind(('localhost', server_port))
+serverSocket.listen(1)
+print("The server is ready to receive")
 
-    if len(argv) == 3:
-        server_port = int(argv[1])
-        admin_passwd = argv[2]
-    else:
-        print("Correct usage: python3 server.py server_port admin_passwd")
-        exit()
-    serverSocket = socket(AF_INET, SOCK_STREAM)
-    serverSocket.bind(('localhost', server_port))
-    serverSocket.listen(1)
-    print("The server is ready to receive")
+while True:
+    connectionSocket, addr = serverSocket.accept()
+    user_login()
+    while selectCommand():
+        pass
 
-    while True:
-        connectionSocket, addr = serverSocket.accept()
-        user_login()
-        while selectCommand():
-            pass
-
-        connectionSocket.close()
+    connectionSocket.close()
 # except KeyboardInterrupt:
 #     pass
 # finally:
