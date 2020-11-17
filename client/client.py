@@ -141,6 +141,7 @@ if __name__ == "__main__":
             serverPort = int(argv[2])
         else:
             print('Correct usage: python3 client.py server_IP server_port')
+            exit()
 
         soc = socket(AF_INET, SOCK_STREAM)
         soc.connect((serverName, serverPort))

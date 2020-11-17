@@ -515,6 +515,7 @@ def remove_thread(threadtitle, user, soc):
         sendError("Thread doesn't exist", soc)
         return
     
+    #FIXME:
     isOwner = False
     with open(threadtitle, "r") as f:
         if f.readline().rstrip == user:
@@ -571,7 +572,7 @@ def userExit(name, soc):
     sendLogout(soc)
     print(name + ' logged out')
     currUsers.remove(name)
-    soc.remove(soc)
+    #soc gets closed by the loop at the bottom
 
 def shutdown(password, soc):
     #FIXME: Work with multiple clients
