@@ -8,7 +8,8 @@ import threading
 from queue import Queue
 
 t_lock = threading.Condition()
-connectedClients = []
+
+#TODO: Check user logged in
 currUsers = []
 threads = []
 server_port = 12000
@@ -197,109 +198,11 @@ def sendToSocket(msg, soc):
     message_queues[soc].put(msg.rstrip())
     #connectionSocket.sendto((msg.rstrip() + '-*-').encode('utf-8'), soc)
 
-def receiveResponse():
-    return connectionSocket.recv(1024).decode('utf-8').strip()
+def receiveResponse(soc):
+    return soc.recv(1024).decode('utf-8').strip()
 
 def thread_exists(threadtitle):
     return next((x for x in threads if x['title'] == threadtitle), False)
-
-def user_login(soc):
-    '''
-    Initial Connection: 
-    When connecting, client prompts for a username
-    - Receive username
-    - Check credentials.txt for a match
-    If name exists send confirmation to client
-    - Client prompts for password
-    - Receive password
-    If password match then confirm to client
-    If doesn't then send error to client
-
-    If things don't match then:
-    - Client prompts for username
-    - If doesn't exist, prompt for new password
-    Creates new line in credentials.txt
-    - Send confirmation to client
-    - Client sends message to user
-    Make sure credentials.txt has write permissions
-    '''
-    print('Client Connected')
-    sendInput('Enter your username: ', soc)
-    username = receiveResponse()
-    file = open('credentials.txt', 'r')
-
-    u_found = False
-    login = False
-    for line in file.readlines():
-        words = line.split()
-        # FIXME:
-        #print(words[0])
-        if words[0] == username:
-            sendInput('200Enter your password: ', soc)
-            passwd = receiveResponse()
-            if words[1] == passwd:
-                login = True
-                currUsers.append(username)
-                print(username + ' successful login', soc)
-                sendMessage('206Successful login', soc)
-                sendName(username, soc)
-            else:
-                sendError('Incorrect password', soc)
-                
-            break
-    
-    file.close()
-
-    if not login:
-        if not u_found:
-            sendError('216Username not found', soc)
-        # 
-        user_register(soc)
-        
-    
-    # u_exists == true
-    # check password
-
-def user_register(soc):
-    # TODO: Check the recursion
-
-    # Get username
-    sendInput('227Enter your username: ', soc)
-    username = receiveResponse()
-    file = open('credentials.txt', 'r')
-
-    u_exists = False
-    for line in file.readlines():
-        words = line.split()
-        if words[0] == username:
-            u_exists = True
-            sendInput('236Enter your password: ', soc)
-            passwd = receiveResponse()
-            if words[1] == passwd:
-                currUsers.append(username)
-                sendMessage('240Successful login', soc)
-                print(username + ' successful login')
-                
-            break
-    file.close()
-    # If user doesn't exist
-    # Prompt new password
-    if not u_exists:
-        file = open('credentials.txt', 'a')
-        sendMessage('249Username not found', soc)
-        sendInput('250Enter new password: ', soc)
-        passwd = receiveResponse()
-        file.write('\n' + username + ' ' + passwd)
-        currUsers.append(username)
-        print('256New user ' + username + ' registered')
-        sendMessage('255User Registered', soc)
-        file.close()
-    else:
-        user_register(soc)
-    
-
-    sendName(username, soc)
-    # Confirmation new user
 
 def create_thread(threadtitle, user, soc):
     '''
@@ -542,12 +445,12 @@ def upload_file(threadtitle, filename, user, soc):
         sendError("Thread doesn't exist", soc)
         return
     sendUpload(filename, soc)
-    filesize = int(receiveResponse())
+    filesize = int(receiveResponse(soc))
     print(filesize)
     file = open(threadtitle + '-' + filename, 'wb')
     while filesize > 0:
         print(str(filesize) + " Receiving...")
-        data = connectionSocket.recv(1024)
+        data = soc.recv(1024)
         file.write(data)
         filesize -= len(data)
     print(filesize)
@@ -592,7 +495,7 @@ def download_file(threadtitle, filename, user, soc):
     data = file.read(1024)
     while data:
         print("Sending...")
-        connectionSocket.send(data)
+        soc.send(data)
         data = file.read(1024)
     file.close()
     print("File sent")
@@ -668,7 +571,7 @@ def userExit(name, soc):
     sendLogout(soc)
     print(name + ' logged out')
     currUsers.remove(name)
-    connectedClients.remove(soc)
+    soc.remove(soc)
 
 def shutdown(password, soc):
     #FIXME: Work with multiple clients
@@ -676,7 +579,7 @@ def shutdown(password, soc):
         sendError('Incorrect admin password', soc)
         return
 
-    for i in connectedClients:
+    for i in inputs:
         sendMessage('Server shutting down', i)
         sendLogout(i)
     print('Shutting down')
@@ -686,7 +589,6 @@ def shutdown(password, soc):
             removeFile(thread['title'] + '-' + f)
     # TODO: close all current connections
     server.close()
-    server.shutdown()
     
 
 def removeFile(filename):
@@ -737,13 +639,13 @@ def typeCommand(message, soc):
         if args == 3:
             create_thread(words[2], username, soc)
     elif cmd == 'MSG':
-        if args > 4:
+        if args >= 4:
             send_message(words[2], words[3:], username, soc)
     elif cmd == 'DLT':
         if args == 4:
             delete_message(words[2], words[3], username, soc)
     elif cmd == 'EDT':
-        if args > 5:
+        if args >= 5:
             edit_message(words[2], words[3], words[4:], username, soc)
     elif cmd == 'LST':
         if args == 2:
@@ -780,7 +682,7 @@ def typeUsername(message, soc):
     '''
     result = findUsername(message)
     if result:
-        sendName(result.split()[0])
+        sendName(result.split()[0], soc)
         sendInputLogin('Enter password:', soc)
     else:
         sendError('Username not found', soc)
@@ -797,7 +699,7 @@ def findUsername(user):
 
 def typeRegisterName(message, soc):
     result = findUsername(message)
-    sendName(message.split()[0])
+    sendName(message.split()[0], soc)
     if result:
         sendInputLogin('Enter password:', soc)
     else:
@@ -880,17 +782,18 @@ while inputs:
         if s is server:
             # New connection
             connection, client_address = s.accept()
-            print('new connection from ' + client_address)
+            print(f'new connection from {client_address}')
             connection.setblocking(0)
             inputs.append(connection)
             message_queues[connection] = Queue()
 
-            sendInputUser('Enter your username:', s)
+            sendInputUser('Enter your username:', connection)
             
         else:
             # Established client
-            data = s.recv(1024)
-            
+            data = s.recv(1024).decode('utf-8')
+            #DEBUG: 
+            #print(f'Received: {data}')
             if data:
                 #message_queues[s].put(data)
                 recv_handler(data, s)
@@ -901,7 +804,6 @@ while inputs:
                 if s in outputs:
                     outputs.remove(s)
                 inputs.remove(s)
-                s.shutdown()
                 s.close()
 
                 del message_queues[s]
@@ -915,14 +817,15 @@ while inputs:
             outputs.remove(s)
         else:
             #TODO: Change separator
-            s.send(next_msg + '-*-')
+            #DEBUG: 
+            #print(f'Sent: {next_msg} to {s.getpeername()}')
+            s.send((next_msg + '\u23F9').encode('utf-8'))
     
     # Handle exceptions:
     for s in exceptional:
         inputs.remove(s)
         if s in outputs:
             outputs.remove(s)
-        s.shutdown()
         s.close()
 
         del message_queues[s]

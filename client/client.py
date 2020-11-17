@@ -1,6 +1,5 @@
 #coding: utf-8
 from os import path
-from server import receiveResponse
 from socket import *
 from sys import argv
 
@@ -15,28 +14,34 @@ def recvError(msg):
 def recvMessage(msg):
     print(msg)
 
-def recvInput(msg):
-    response = input(msg + ' ')
-    sendToServer(response)
-
 def recvInputUser(msg):
-    resp = input(msg + ' ')
+    resp = None
+    while not resp:
+        resp = input(msg + ' ')
     sendUsername(resp)
 
 def recvInputRegisterName(msg):
-    resp = input(msg + ' ')
+    resp = None
+    while not resp:
+        resp = input(msg + ' ')
     sendRegisterName(resp)
 
 def recvInputComm(msg):
-    resp = input(msg + ' ')
+    resp = None
+    while not resp:
+        resp = input(msg + ' ')
     sendCommand(resp)
 
 def recvInputLogin(msg):
-    resp = input(msg + ' ')
+    resp = None
+    while not resp:
+        resp = input(msg + ' ')
     sendLogin(resp)
 
 def recvInputRegister(msg):
-    resp = input(msg + ' ')
+    resp = None
+    while not resp:
+        resp = input(msg + ' ')
     sendRegister(resp)
 
 def recvUpload(filename):
@@ -66,9 +71,10 @@ def recvDownload(string):
 
 def recvFromServer():
     response = soc.recv(1024).decode('utf-8')
+    #DEBUG: 
     #print('response: ' + response)
-    commands = response.split('-*-')
-    DEBUG_i = 0
+    commands = response.split('\u23F9')
+    #DEBUG_i = 0
     for cmd in commands:
         if cmd == '':
             # Last command
@@ -99,13 +105,15 @@ def recvFromServer():
         elif command == 'L':
             # Logout
             logout()
-        DEBUG_i += 1
+        #DEBUG_i += 1
 
 def logout():
     soc.close()
     exit()
 
 def sendToServer(msg):
+    #DEBUG:
+    #print(f'Sent: {msg}')
     soc.send((msg).encode('utf-8'))
 
 def sendCommand(resp):
@@ -135,9 +143,8 @@ if __name__ == "__main__":
             print('Correct usage: python3 client.py server_IP server_port')
 
         soc = socket(AF_INET, SOCK_STREAM)
-        #This line creates the client’s socket. The first parameter indicates the address family; in particular,AF_INET indicates that the underlying network is using IPv4. The second parameter indicates that the socket is of type SOCK_STREAM,which means it is a TCP socket (rather than a UDP socket, where we use SOCK_DGRAM). 
         soc.connect((serverName, serverPort))
-        #Before the client can send data to the server (or vice versa) using a TCP socket, a TCP connection must first be established between the client and server. The above line initiates the TCP connection between the client and server. The parameter of the connect( ) method is the address of the server side of the connection. After this line of code is executed, the three-way handshake is performed and a TCP connection is established between the client and server.
+        sendToServer('Hello')
 
         while True:
             recvFromServer()
