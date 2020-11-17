@@ -1,5 +1,6 @@
 #coding: utf-8
 from os import path
+from server import receiveResponse
 from socket import *
 from sys import argv
 
@@ -19,17 +20,24 @@ def recvInput(msg):
     sendToServer(response)
 
 def recvInputUser(msg):
-    response = input(msg + ' ')
-    sendToServer(response)
+    resp = input(msg + ' ')
+    sendUsername(resp)
+
+def recvInputRegisterName(msg):
+    resp = input(msg + ' ')
+    sendRegisterName(resp)
 
 def recvInputComm(msg):
-    pass
+    resp = input(msg + ' ')
+    sendCommand(resp)
 
 def recvInputLogin(msg):
-    pass
+    resp = input(msg + ' ')
+    sendLogin(resp)
 
 def recvInputRegister(msg):
-    pass
+    resp = input(msg + ' ')
+    sendRegister(resp)
 
 def recvUpload(filename):
     filesize = str(path.getsize(filename))
@@ -73,17 +81,19 @@ def recvFromServer():
             recvMessage(cmd[1:])
         elif command == 'I':
             recvInputUser(cmd[1:])
+        elif command == 'N':
+            recvInputRegisterName(cmd[1:])
         elif command == 'C':
             recvInputComm(cmd[1:])
         elif command == 'L':
             recvInputLogin(cmd[1:])
         elif command == 'R':
             recvInputRegister(cmd[1:])
-        elif command == 'U':
+        elif command == 'F':
             recvUpload(cmd[1:])
         elif command == 'D':
             recvDownload(cmd[1:])
-        elif command == 'N':
+        elif command == 'U':
             global user
             user = cmd[1:]
         elif command == 'L':
@@ -99,16 +109,19 @@ def sendToServer(msg):
     soc.send((msg).encode('utf-8'))
 
 def sendCommand(resp):
-    soc.send(('C' + user + ' ' + resp).encode('utf-8'))
+    sendToServer('C' + user + ' ' + resp)
 
 def sendUsername(resp):
-    soc.send(('U' + resp).encode('utf-8'))
+    sendToServer('U' + resp)
+
+def sendRegisterName(resp):
+    sendToServer('N' + resp)
 
 def sendLogin(resp):
-    soc.send(('L' + user + ' ' + resp)).encode('utf-8')
+    sendToServer('L' + user + ' ' + resp)
 
 def sendRegister(resp):
-    soc.send(('R' + user + ' ' + resp)).encode('utf-8')
+    sendToServer('R' + user + ' ' + resp)
 
 
 if __name__ == "__main__":
