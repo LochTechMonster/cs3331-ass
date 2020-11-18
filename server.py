@@ -477,7 +477,7 @@ def upload_file(threadtitle, filename, user, soc):
     # file.write('\n' + user + ' uploaded ' + filename)
     # file.close()
 
-    # thread['files'].append(filename)
+    thread['files'].append(filename)
     # sendMessage('File sent', soc)
 
 def download_file(threadtitle, filename, user, soc):
@@ -748,12 +748,12 @@ def typeFile(message, soc):
             data = soc.recv(1024)
             f.write(data)
             filesize -= len(data)
-    
+    soc.setblocking(0)
     print(f'File {filename} received')
 
-    file = open(file['thread'], 'a')
+    #file = open(file['thread'], 'a')
     with open(file['thread'], 'a') as f:
-        f.write('\n' + file['user'] + ' uploaded ' + filename)
+        f.write('\n' + file['user'] + ' uploaded ' + file['name'])
         f.close()
 
     # file = open(threadtitle + '-' + filename, 'wb')
@@ -769,8 +769,7 @@ def typeFile(message, soc):
     if file['size'] <= 0:
         sendMessage('File received', soc)
         sendInputComm(soc)
-
-    
+   
 def getFilename(file):
     return file['thread'] + '-' + file['name']
 
