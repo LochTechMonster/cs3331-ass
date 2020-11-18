@@ -44,18 +44,22 @@ def recvInputRegister(msg):
         resp = input(msg + ' ')
     sendRegister(resp)
 
-def recvUpload(filename):
+def recvUpload(msg):
+    filename = msg.split()[0]
+    fileid = int(msg.split()[1])
     filesize = str(path.getsize(filename))
     print(filesize)
-    soc.send(filesize.encode('utf-8'))
+    sendSize(str(fileid) + ' ' + filesize)
+    #soc.send(filesize.encode('utf-8'))
     file = open(filename, "rb")
-    data = file.read(1024)
+    # one byte for the File indicator and one for the fileid
+    data = file.read(1022)
     while data:
         print("Sending...")
         soc.send(data)
-        data = file.read(1024)
+        data = file.read(1022)
     file.close()
-    print("Done")
+    print("File sent")
 
 def recvDownload(string):
     filename = string.split()[0]
@@ -111,11 +115,13 @@ def logout():
     soc.close()
     exit()
 
+# TODO: Fix specifying messages here
 def sendToServer(msg):
     #DEBUG:
     #print(f'Sent: {msg}')
-    soc.send((msg).encode('utf-8'))
+    soc.send(msg.encode('utf-8'))
 
+#TODO: bring sendToServer back
 def sendCommand(resp):
     sendToServer('C' + user + ' ' + resp)
 
@@ -130,6 +136,12 @@ def sendLogin(resp):
 
 def sendRegister(resp):
     sendToServer('R' + user + ' ' + resp)
+
+def sendSize(resp):
+    sendToServer('F' + resp)
+
+def sendFile(data):
+    soc.send(b'F'+data)
 
 
 if __name__ == "__main__":
