@@ -585,6 +585,7 @@ def removeFile(filename):
 
 #FIXME: 
 def recv_handler(message, soc):
+    print(curr_users)
     comm = message[0]
     if comm == 'C':
         typeCommand(message[1:], soc)
