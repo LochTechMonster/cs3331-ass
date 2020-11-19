@@ -10,13 +10,14 @@ from queue import Queue
 
 #TODO: Check user logged in
 
-currUsers = []
+curr_users = []
 threads = []
 server_port = 12000
 admin_passwd = None 
+files = []
 
 #FIXME: Remove line numbers from responses
-#TODO: Make ' and " consistent
+#TODO: Make ' and ' consistent
 #FIXME: SHT removes the credentials file
 '''
     Initial Connection: 
@@ -160,7 +161,7 @@ admin_passwd = None
 '''
 
 def sendError(msg, soc):
-    print('ERROR: ' + msg)
+    #print('ERROR: ' + msg)
     sendToSocket('E' + msg, soc)
     #FIXME: send different messages for all errors to user and to server
 
@@ -217,7 +218,8 @@ def create_thread(threadtitle, user, soc):
     print(user + ' issued CRT command')
 
     if thread_exists(threadtitle):
-        sendError('Thread already exists', soc)
+        sendError(f'Thread {threadtitle} exists', soc)
+        print(f'Thread {threadtitle} exists')
     else:
         # thread doesn't exist yet
         file = open(threadtitle, 'w')
@@ -242,13 +244,13 @@ def send_message(threadtitle, message, user, soc):
     '''
     print(user + ' issued MSG command')
     if not thread_exists(threadtitle):
-        sendError("Thread doesn't exist", soc)
+        sendError('Thread does not exist', soc)
         return
     msg = ' '.join(message)
     
     lastNum = get_lastnumber(threadtitle)
 
-    file = open(threadtitle, "a")
+    file = open(threadtitle, 'a')
     file.write('\n' + str(lastNum + 1) + ' ' + user + ': ' + msg)
     sendMessage('Message sent to ' + threadtitle + ' thread', soc)
     print(user + ' posted to ' + threadtitle + ' thread')
@@ -256,7 +258,7 @@ def send_message(threadtitle, message, user, soc):
     file.close()
 
 def is_message(line):
-    result = re.search("^[0-9]+ .+: .+", line)
+    result = re.search('^[0-9]+ .+: .+', line)
     return (result is not None)
 
 def get_msgnumber(line):
@@ -264,7 +266,7 @@ def get_msgnumber(line):
     return int(line.split()[0])
 
 def get_lastnumber(threadtitle):
-    file = open(threadtitle, "r")
+    file = open(threadtitle, 'r')
     lines = file.read().splitlines()
     #print(lines)
     #print(len(lines))
@@ -297,16 +299,16 @@ def delete_message(threadtitle, msgNumber, user, soc):
     '''
     print(user + ' issued DLT command')
     if not thread_exists(threadtitle):
-        sendError("Thread doesn't exist", soc)
+        sendError('Thread does not exist', soc)
         return
     
     msgNum = int(msgNumber)
     if msgNum < 1 or msgNum > get_lastnumber(threadtitle):
-        sendError("Message number doesn't exist", soc)
+        sendError('Message number does not exist', soc)
         return
     
     found = False
-    with open(threadtitle, "r+") as f:
+    with open(threadtitle, 'r+') as f:
         thread = f.readlines()
         # Clears file then rewrites it
         f.seek(0)
@@ -324,7 +326,7 @@ def delete_message(threadtitle, msgNumber, user, soc):
                     if (user + ':') == line.split()[1]:
                         found = True
                     else:
-                        sendError("Message cannot be deleted", soc)
+                        sendError('Message cannot be deleted', soc)
                         f.write('\n' + line.rstrip())
                 else:
                     # Before the message
@@ -350,16 +352,18 @@ def edit_message(threadtitle, msgNumber, message, user, soc):
     '''
     print(user + ' issued EDT command')
     if not thread_exists(threadtitle):
-        sendError("Thread doesn't exist", soc)
+        sendError(f'Thread {threadtitle} does not exist', soc)
+        print('Incorrect thread specified')
         return
     
     msgNum = int(msgNumber)
     if msgNum < 1 or msgNum > get_lastnumber(threadtitle):
-        sendError("Message number doesn't exist", soc)
+        sendError(f'Message {str(msgNum)} does not exist in {threadtitle}', soc)
+        print('Incorrect message number specified')
         return
     
     found = False
-    with open(threadtitle, "r+") as f:
+    with open(threadtitle, 'r+') as f:
         thread = f.readlines()
         # Clears file then rewrites it
         f.seek(0)
@@ -370,12 +374,14 @@ def edit_message(threadtitle, msgNumber, message, user, soc):
             if is_message(line):
                 if not found and get_msgnumber(line) == msgNum:
                     if (user + ':') == line.split()[1]:
+                        # User wrote message
                         found = True
                         msg = ' '.join(message)
                         prefix = ' '.join(line.split()[0:2])
                         f.write('\n' + prefix + ' ' + msg)
                     else:
-                        sendError("Message cannot be edited", soc)
+                        sendError('The message belongs to another user and cannot be edited', soc)
+                        print('Message cannot be edited')
                         f.write('\n' + line.rstrip())
                 else:
                     f.write('\n' + line.strip())
@@ -383,7 +389,7 @@ def edit_message(threadtitle, msgNumber, message, user, soc):
                 f.write('\n' + line.strip())
 
     if found:
-        sendMessage('Message edited', soc)
+        sendMessage('The message has been edited', soc)
         print('Message edited')
 
 def list_threads(user, soc):
@@ -413,15 +419,18 @@ def read_thread(threadtitle, user, soc):
     '''
     print(user + ' issued RDT command')
     if not thread_exists(threadtitle):
-        sendError("Thread doesn't exist", soc)
+        sendError(f'Thread {threadtitle} does not exist', soc)
+        print('Incorrect thread specified')
         return
     
     with open(threadtitle, 'r') as f:
         f.readline()
         for line in f:
             sendMessage(line, soc)
+    
+    print(f'Thread {threadtitle} read')
 
-files = []
+
 
 def upload_file(threadtitle, filename, user, soc):
     '''
@@ -442,7 +451,7 @@ def upload_file(threadtitle, filename, user, soc):
     print(user + ' issued UPD command')
     thread = thread_exists(threadtitle)
     if not thread:
-        sendError("Thread doesn't exist", soc)
+        sendError('Thread does not exist', soc)
         return
     fileid = 0
     if files != []:
@@ -460,26 +469,8 @@ def upload_file(threadtitle, filename, user, soc):
         'thread': threadtitle,
     })
     sendUpload(filename + ' ' + str(fileid), soc)
-    
-    #sendUpload(filename, soc)
-    # filesize = int(soc.recv(1024).decode('utf-8'))
-    # print(filesize)
-    # file = open(threadtitle + '-' + filename, 'wb')
-    # while filesize > 0:
-    #     print(str(filesize) + " Receiving...")
-    #     data = soc.recv(1024)
-    #     file.write(data)
-    #     filesize -= len(data)
-    # print(filesize)
-    # print('File ' + filename + ' received')
-    # file.close()
-
-    # file = open(threadtitle, 'a')
-    # file.write('\n' + user + ' uploaded ' + filename)
-    # file.close()
 
     thread['files'].append(filename)
-    # sendMessage('File sent', soc)
 
 def download_file(threadtitle, filename, user, soc):
     '''
@@ -498,27 +489,29 @@ def download_file(threadtitle, filename, user, soc):
 
     thread = thread_exists(threadtitle)
     if not thread:
-        sendError("Thread doesn't exist", soc)
+        sendError(f'Thread {threadtitle} does not exist', soc)
+        print('Incorrect thread specified')
         return
     if filename not in thread['files']:
-        sendError("File doesn't exist in thread", soc)
+        sendError(f'File does not exist in Thread {threadtitle}', soc)
+        print(f'{filename} does not exist in Thread {threadtitle}')
         return
     
     combinedName = threadtitle + '-' + filename
     filesize = str(path.getsize(combinedName))
     sendDownload(filename + ' ' + filesize, soc)
 
-    file = open(combinedName, "rb")
+    file = open(combinedName, 'rb')
     data = file.read(1024)
     while data:
-        print("Sending...")
+        print('Sending...')
         message_queues[soc].put(data)
         #sendToSocket(data, soc)
         #soc.send(data)
         data = file.read(1024)
     file.close()
-    print("File sent")
-    sendMessage("File downloaded", soc)
+    print('File sent')
+    sendMessage(f'{filename} successfully downloaded', soc)
     
 def remove_thread(threadtitle, user, soc):
     '''
@@ -531,13 +524,16 @@ def remove_thread(threadtitle, user, soc):
     '''
     thread = thread_exists(threadtitle)
     if not thread:
-        sendError("Thread doesn't exist", soc)
+        sendError('Thread does not exist', soc)
         return
     
     #FIXME:
     isOwner = False
-    with open(threadtitle, "r") as f:
-        if f.readline().rstrip == user:
+    with open(threadtitle, 'r') as f:
+        owner = f.readline().rstrip()
+        #print(owner)
+        #print(user)
+        if owner == user:
             isOwner = True
 
     if isOwner:
@@ -545,27 +541,34 @@ def remove_thread(threadtitle, user, soc):
         for filename in thread['files']:
             removeFile(threadtitle + '-' + filename)
     else:
-        sendError("User is not the owner", soc)
+        sendError('The thread was created by another user and cannot be removed', soc)
+        print(f'Thread {threadtitle} cannot be removed')
+        return
+    
+    sendMessage(f'Thread {threadtitle} removed', soc)
+    print(f'Thread {threadtitle} removed')
 
 def userExit(name, soc):
     sendMessage('Logging out', soc)
     sendLogout(soc)
     print(name + ' logged out')
-    currUsers.remove(name)
+    curr_users.remove(name)
     #soc gets closed by the loop at the bottom
 
-def shutdown(password, soc):
+def shutdown(password, user, soc):
     #FIXME: Work with multiple clients
+    print(f'{user} issued SHT command')
     if password != admin_passwd:
-        sendError('Incorrect admin password', soc)
+        sendError('Incorrect password', soc)
         sendInputComm(soc)
+        print('Incorrect password')
         return
 
     # server is inputs[0]
     for i in inputs[1:]:
         sendMessage('Server shutting down', i)
         sendLogout(i)
-    print('Shutting down')
+    print('Server shutting down')
     for thread in threads:
         removeFile(thread['title'])
         for f in thread['files']:
@@ -595,8 +598,11 @@ def recv_handler(message, soc):
         typeRegister(message[1:], soc)
     elif comm == 'F':
         typeFile(message[1:], soc)
+    elif message == 'Hello':
+        # Initial connection
+        pass
     else:
-        print('Incorrect Command')
+        print('Invalid Command')
     # elif comm == b'F':
     #     typeFile(message[1:], soc)
 
@@ -620,7 +626,7 @@ def recv_handler(message, soc):
 def typeCommand(message, soc):
     words = message.split()
     username = words[0]
-    if username not in currUsers:
+    if username not in curr_users:
         sendError('User not currently logged in', soc)
     cmd = words[1]
     args = len(words)
@@ -628,38 +634,63 @@ def typeCommand(message, soc):
     if cmd == 'CRT':
         if args == 3:
             create_thread(words[2], username, soc)
+        else:
+            sendError(f'Invalid syntax for {cmd}', soc)
     elif cmd == 'MSG':
         if args >= 4:
             send_message(words[2], words[3:], username, soc)
+        else:
+            sendError(f'Invalid syntax for {cmd}', soc)
     elif cmd == 'DLT':
         if args == 4:
             delete_message(words[2], words[3], username, soc)
+        else:
+            sendError(f'Invalid syntax for {cmd}', soc)
     elif cmd == 'EDT':
         if args >= 5:
             edit_message(words[2], words[3], words[4:], username, soc)
+        else:
+            sendError(f'Invalid syntax for {cmd}', soc)
     elif cmd == 'LST':
         if args == 2:
             list_threads(username, soc)
+        else:
+            sendError(f'Invalid syntax for {cmd}', soc)
     elif cmd == 'RDT':
         if args == 3:
             read_thread(words[2], username, soc)
+        else:
+            sendError(f'Invalid syntax for {cmd}', soc)
     elif cmd == 'UPD':
         if args == 4:
             upload_file(words[2], words[3], username, soc)
+            return
+        else:
+            sendError(f'Invalid syntax for {cmd}', soc)
     elif cmd == 'DWN':
         if args == 4:
             download_file(words[2], words[3], username, soc)
+        else:
+            sendError(f'Invalid syntax for {cmd}', soc)
     elif cmd == 'RMV':
         if args == 3:
             remove_thread(words[2], username, soc)
+        else:
+            sendError(f'Invalid syntax for {cmd}', soc)
     elif cmd == 'XIT':
         if args == 2:
             userExit(username, soc)
             return
+        else:
+            sendError(f'Invalid syntax for {cmd}', soc)
     elif cmd == 'SHT':
         if args == 3:
-            shutdown(words[2], soc)
+            shutdown(words[2], username, soc)
             return
+        else:
+            sendError(f'Invalid syntax for {cmd}', soc)
+    else:
+        sendError('Invalid Command', soc)
     
     sendInputComm(soc)
 
@@ -672,7 +703,7 @@ def typeUsername(message, soc):
     '''
     result = findUsername(message)
     if result:
-        if result in currUsers:
+        if result in curr_users:
             sendError('User already logged in', soc)
             sendInputUser('Enter your username:', soc)
         else:
@@ -698,7 +729,7 @@ def typeRegisterName(message, soc):
         sendInputLogin('Enter password:', soc)
     else:
         sendMessage('Username not found, registering new user', soc)
-        sendInputRegister('Input new password:')
+        sendInputRegister(f'Input new password for {message.split()[0]}:', soc)
 
 def typeLogin(message, soc):
     '''
@@ -712,9 +743,9 @@ def typeLogin(message, soc):
     result = findUsername(inUser)
     storedPass = result.split()[1]
     if storedPass == inPass:
-        currUsers.append(inUser)
-        sendMessage('Logged in', soc)
-        print(inUser + ' successfully logged in')
+        curr_users.append(inUser)
+        sendMessage('Welcome to the forum', soc)
+        print(inUser + ' successful login')
         sendInputComm(soc)
     else:
         sendError('Incorrect password', soc)
@@ -729,8 +760,8 @@ def typeRegister(message, soc):
     with open('credentials.txt', 'a') as f:
         f.write(message + '\n')
         print('New user ' + message.split()[0] + ' registered')
-        currUsers.append(message.split()[0])
-        sendMessage('Successful login', soc)
+        curr_users.append(message.split()[0])
+        sendMessage('Welcome to the forum', soc)
 
     sendInputComm(soc)
         
@@ -759,27 +790,20 @@ def typeFile(message, soc):
             data = soc.recv(1024)
             f.write(data)
             filesize -= len(data)
-    soc.setblocking(0)
-    print(f'File {filename} received')
+    soc.setblocking(0)    
+    sendMessage('File received', soc)
 
-    #file = open(file['thread'], 'a')
     with open(file['thread'], 'a') as f:
         f.write('\n' + file['user'] + ' uploaded ' + file['name'])
         f.close()
 
-    # file = open(threadtitle + '-' + filename, 'wb')
-    # while filesize > 0:
-    #     print(str(filesize) + " Receiving...")
-    #     data = soc.recv(1024)
-    #     file.write(data)
-    #     filesize -= len(data)
-    # print(filesize)
-    # print('File ' + filename + ' received')
-    # file.close()
+    user = file['user']
+    name = file['name']
+    thread = file['thread']
+    print(f'{user} uploaded file {name} to {thread}')
 
-    if file['size'] <= 0:
-        sendMessage('File received', soc)
-        sendInputComm(soc)
+    
+    sendInputComm(soc)
    
 def getFilename(file):
     return file['thread'] + '-' + file['name']
@@ -795,26 +819,30 @@ if len(argv) == 3:
     server_port = int(argv[1])
     admin_passwd = argv[2]
 else:
-    print("Correct usage: python3 server.py server_port admin_passwd")
+    print('Correct usage: python3 server.py server_port admin_passwd')
     exit()
 server = socket(AF_INET, SOCK_STREAM)
 server.setblocking(0)
 server.bind(('localhost', server_port))
 server.listen(5)
-print("The server is ready to receive")
+print('The server is ready to receive')
+
+server_shutdown = False
 
 # https://pymotw.com/2/select/
 inputs = [server]
-
 outputs = []
-
 message_queues = {}
-server_shutdown = False
 
 while inputs:
-    if server_shutdown and (inputs == [server]):
-        server.close()
-        exit()
+    if inputs == [server]:
+        if server_shutdown:
+            server.close()
+            exit()
+        else:
+            #TODO: Check this works
+            print('Waiting for clients')
+
     readable, writable, exceptional = select.select(inputs, outputs, inputs)
     # Handle inputs
     for s in readable:

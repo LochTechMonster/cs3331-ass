@@ -7,13 +7,13 @@ import threading
 
 user = ''
 
-#FIXME: Remove response print
-#TODO: Change all str variables
+COLOUR_RED = '\u001b[31m'
+COLOUR_RESET = '\u001b[0m'
+
 #TODO: Make errors red
-#TODO: Check in with server to check its alive
-#      Do this with multithreading?
+
 def recvError(msg):
-    print(msg)
+    print(COLOUR_RED + msg + COLOUR_RESET)
 
 def recvMessage(msg):
     print(msg)
@@ -52,18 +52,19 @@ def recvUpload(msg):
     filename = msg.split()[0]
     fileid = int(msg.split()[1])
     filesize = str(path.getsize(filename))
-    print(filesize)
-    sendSize(str(fileid) + ' ' + filesize)
+    #DEBUG
+    #print(filesize)
+    sendFile(str(fileid) + ' ' + filesize)
     #soc.send(filesize.encode('utf-8'))
     file = open(filename, "rb")
     # one byte for the File indicator and one for the fileid
-    data = file.read(1022)
+    data = file.read(1024)
     while data:
-        print("Sending...")
+        #DEBUG
+        #print("Sending...")
         soc.send(data)
-        data = file.read(1022)
+        data = file.read(1024)
     file.close()
-    print("File sent")
 
 def recvDownload(string):
     filename = string.split()[0]
@@ -130,7 +131,6 @@ def run_command(cmd):
 
 
 def logout():
-    sendShutdown()
     soc.close()
     exit()
 
@@ -156,11 +156,8 @@ def sendLogin(resp):
 def sendRegister(resp):
     sendToServer('R' + user + ' ' + resp)
 
-def sendSize(resp):
+def sendFile(resp):
     sendToServer('F' + resp)
-
-def sendShutdown():
-    sendToServer('S')
 
 
 # def ping_server():
