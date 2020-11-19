@@ -7,17 +7,12 @@ import re
 import select
 from queue import Queue
 
-
-#TODO: Check user logged in
-
 curr_users = []
 threads = []
 server_port = 12000
 admin_passwd = None 
 files = []
 
-#FIXME: Remove line numbers from responses
-#TODO: Make ' and ' consistent
 #FIXME: SHT removes the credentials file
 '''
     Initial Connection: 
@@ -161,9 +156,7 @@ files = []
 '''
 
 def sendError(msg, soc):
-    #print('ERROR: ' + msg)
     sendToSocket('E' + msg, soc)
-    #FIXME: send different messages for all errors to user and to server
 
 def sendMessage(msg, soc):
     sendToSocket('M' + msg, soc)
@@ -262,14 +255,11 @@ def is_message(line):
     return (result is not None)
 
 def get_msgnumber(line):
-    # Prob try to catch error here
     return int(line.split()[0])
 
 def get_lastnumber(threadtitle):
     file = open(threadtitle, 'r')
     lines = file.read().splitlines()
-    #print(lines)
-    #print(len(lines))
     lastMessage = None
     for line in reversed(lines[1:]):
         if is_message(line):
@@ -370,7 +360,6 @@ def edit_message(threadtitle, msgNumber, message, user, soc):
         f.truncate()
         f.write(thread[0].strip())
         for line in thread[1:]:
-            #print(line)
             if is_message(line):
                 if not found and get_msgnumber(line) == msgNum:
                     if (user + ':') == line.split()[1]:
@@ -506,8 +495,6 @@ def download_file(threadtitle, filename, user, soc):
     while data:
         print('Sending...')
         message_queues[soc].put(data)
-        #sendToSocket(data, soc)
-        #soc.send(data)
         data = file.read(1024)
     file.close()
     print('File sent')
@@ -527,12 +514,9 @@ def remove_thread(threadtitle, user, soc):
         sendError('Thread does not exist', soc)
         return
     
-    #FIXME:
     isOwner = False
     with open(threadtitle, 'r') as f:
         owner = f.readline().rstrip()
-        #print(owner)
-        #print(user)
         if owner == user:
             isOwner = True
 
@@ -556,7 +540,6 @@ def userExit(name, soc):
     #soc gets closed by the loop at the bottom
 
 def shutdown(password, user, soc):
-    #FIXME: Work with multiple clients
     print(f'{user} issued SHT command')
     if password != admin_passwd:
         sendError('Incorrect password', soc)
@@ -573,17 +556,17 @@ def shutdown(password, user, soc):
         removeFile(thread['title'])
         for f in thread['files']:
             removeFile(thread['title'] + '-' + f)
-    # TODO: close all current connections
+
+    removeFile('credentials.txt')
     global server_shutdown
     server_shutdown = True
-    #server.close()
+
     
 def removeFile(filename):
     '''Safely removes files'''
     if path.exists(filename):
         remove(filename)
 
-#FIXME: 
 def recv_handler(message, soc):
     print(curr_users)
     comm = message[0]
@@ -604,8 +587,6 @@ def recv_handler(message, soc):
         pass
     else:
         print('Invalid Command')
-    # elif comm == b'F':
-    #     typeFile(message[1:], soc)
 
 '''
     Input types:
@@ -761,17 +742,17 @@ def typeRegister(message, soc):
     Then adds to logged in
     '''
     with open('credentials.txt', 'a') as f:
-        f.write(message + '\n')
+        f.write('\n' + message)
         print('New user ' + message.split()[0] + ' registered')
         curr_users.append(message.split()[0])
         sendMessage('Welcome to the forum', soc)
 
     sendInputComm(soc)
         
-def getFile(fileid):
-    return next((x for x in files if x['id'] == fileid), None)
-
 def typeFile(message, soc):
+    '''
+    Receives an uploaded file
+    '''
     fileid = int(message.split()[0])
     filesize = int(message.split()[1])
 
@@ -808,22 +789,22 @@ def typeFile(message, soc):
     
     sendInputComm(soc)
    
+def getFile(fileid):
+    return next((x for x in files if x['id'] == fileid), None)
+
 def getFilename(file):
     return file['thread'] + '-' + file['name']
 
-#try:
-#using the socket module
 
-#Define connection (socket) parameters
-#Address + Port no
-#Server would be running on the same host as Client
-# change this port number if required
+# Get port and password from command line
 if len(argv) == 3:
     server_port = int(argv[1])
     admin_passwd = argv[2]
 else:
     print('Correct usage: python3 server.py server_port admin_passwd')
     exit()
+
+# Create socket
 server = socket(AF_INET, SOCK_STREAM)
 server.setblocking(0)
 server.bind(('localhost', server_port))
@@ -837,13 +818,13 @@ inputs = [server]
 outputs = []
 message_queues = {}
 
+# Manage message in and going out
 while inputs:
     if inputs == [server]:
         if server_shutdown:
             server.close()
             exit()
         else:
-            #TODO: Check this works
             print('Waiting for clients')
 
     readable, writable, exceptional = select.select(inputs, outputs, inputs)
@@ -862,14 +843,8 @@ while inputs:
         else:
             # Established client
             data = s.recv(1024).decode('utf-8')
-            #DEBUG: 
-            #print(f'Received: {data}')
+
             if data:
-                #message_queues[s].put(data)
-                # if data[0] != 'F':
-                #     data = data.decode('utf-8')
-                # else:
-                #     typeFile(data[1:], s)
                 recv_handler(data, s)
                 if s not in outputs:
                     outputs.append(s)
@@ -895,8 +870,6 @@ while inputs:
             # No more messages
             outputs.remove(s)
         else:
-            #DEBUG: 
-            #print(f'Sent: {next_msg} to {s.getpeername()}')
             s.send(next_msg)
     
     # Handle exceptions:
