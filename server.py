@@ -742,7 +742,7 @@ def typeLogin(message, soc):
     result = findUsername(inUser)
     storedPass = result.split()[1]
     if storedPass == inPass:
-        if result in curr_users:
+        if inUser in curr_users:
             sendError('User already logged in', soc)
             sendInputUser('Enter your username:', soc)
         else:
