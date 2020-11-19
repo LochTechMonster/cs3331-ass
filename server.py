@@ -1,4 +1,5 @@
 #coding: utf-8
+# Change socket import
 from socket import *
 from sys import argv
 from os import path, remove
@@ -8,6 +9,7 @@ from queue import Queue
 
 
 #TODO: Check user logged in
+
 currUsers = []
 threads = []
 server_port = 12000
@@ -191,11 +193,10 @@ def sendName(msg, soc):
 
 def sendLogout(soc):
     sendMessage('Goodbye', soc)
-    sendToSocket('L', soc)
+    sendToSocket('Q', soc)
 
 def sendToSocket(msg, soc):
-    message_queues[soc].put(msg.rstrip())
-    #connectionSocket.sendto((msg.rstrip() + '-*-').encode('utf-8'), soc)
+    message_queues[soc].put((msg.rstrip() + '\u23F9').encode('utf-8'))
 
 def thread_exists(threadtitle):
     return next((x for x in threads if x['title'] == threadtitle), False)
@@ -511,7 +512,9 @@ def download_file(threadtitle, filename, user, soc):
     data = file.read(1024)
     while data:
         print("Sending...")
-        soc.send(data)
+        message_queues[soc].put(data)
+        #sendToSocket(data, soc)
+        #soc.send(data)
         data = file.read(1024)
     file.close()
     print("File sent")
@@ -555,9 +558,11 @@ def shutdown(password, soc):
     #FIXME: Work with multiple clients
     if password != admin_passwd:
         sendError('Incorrect admin password', soc)
+        sendInputComm(soc)
         return
 
-    for i in inputs:
+    # server is inputs[0]
+    for i in inputs[1:]:
         sendMessage('Server shutting down', i)
         sendLogout(i)
     print('Shutting down')
@@ -566,7 +571,9 @@ def shutdown(password, soc):
         for f in thread['files']:
             removeFile(thread['title'] + '-' + f)
     # TODO: close all current connections
-    server.close()
+    global server_shutdown
+    server_shutdown = True
+    #server.close()
     
 def removeFile(filename):
     '''Safely removes files'''
@@ -665,8 +672,12 @@ def typeUsername(message, soc):
     '''
     result = findUsername(message)
     if result:
-        sendName(result.split()[0], soc)
-        sendInputLogin('Enter password:', soc)
+        if result in currUsers:
+            sendError('User already logged in', soc)
+            sendInputUser('Enter your username:', soc)
+        else:
+            sendName(result.split()[0], soc)
+            sendInputLogin('Enter password:', soc)
     else:
         sendError('Username not found', soc)
         sendInputRegisterName('Enter username:', soc)
@@ -798,11 +809,13 @@ inputs = [server]
 outputs = []
 
 message_queues = {}
-
+server_shutdown = False
 
 while inputs:
+    if server_shutdown and (inputs == [server]):
+        server.close()
+        exit()
     readable, writable, exceptional = select.select(inputs, outputs, inputs)
-
     # Handle inputs
     for s in readable:
         if s is server:
@@ -842,14 +855,18 @@ while inputs:
     for s in writable:
         try:
             next_msg = message_queues[s].get_nowait()
+            if next_msg == 'Q\u23F9'.encode('utf-8'):
+                # Shutting down client
+                inputs.remove(s)
+                outputs.remove(s)
+                del message_queues[s]
         except:
             # No more messages
             outputs.remove(s)
         else:
-            #TODO: Change separator
             #DEBUG: 
             #print(f'Sent: {next_msg} to {s.getpeername()}')
-            s.send((next_msg + '\u23F9').encode('utf-8'))
+            s.send(next_msg)
     
     # Handle exceptions:
     for s in exceptional:

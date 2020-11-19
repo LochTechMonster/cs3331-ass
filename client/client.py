@@ -1,13 +1,17 @@
 #coding: utf-8
 from os import path
+import select
 from socket import *
 from sys import argv
+import threading
 
 user = ''
 
 #FIXME: Remove response print
 #TODO: Change all str variables
 #TODO: Make errors red
+#TODO: Check in with server to check its alive
+#      Do this with multithreading?
 def recvError(msg):
     print(msg)
 
@@ -80,38 +84,53 @@ def recvFromServer():
     commands = response.split('\u23F9')
     #DEBUG_i = 0
     for cmd in commands:
-        if cmd == '':
-            # Last command
-            break
-        #print(DEBUG_i)
-        command = cmd[0]
-        if command == 'E':
-            recvError(cmd[1:])
-        elif command == 'M':
-            recvMessage(cmd[1:])
-        elif command == 'I':
-            recvInputUser(cmd[1:])
-        elif command == 'N':
-            recvInputRegisterName(cmd[1:])
-        elif command == 'C':
-            recvInputComm(cmd[1:])
-        elif command == 'L':
-            recvInputLogin(cmd[1:])
-        elif command == 'R':
-            recvInputRegister(cmd[1:])
-        elif command == 'F':
-            recvUpload(cmd[1:])
-        elif command == 'D':
-            recvDownload(cmd[1:])
-        elif command == 'U':
-            global user
-            user = cmd[1:]
-        elif command == 'L':
-            # Logout
-            logout()
-        #DEBUG_i += 1
+        run_command(cmd)
+
+def run_command(cmd):
+    if cmd == '':
+        # Last command
+        return
+    #print(DEBUG_i)
+    command = cmd[0]
+    if command == 'E':
+        recvError(cmd[1:])
+    elif command == 'M':
+        recvMessage(cmd[1:])
+    elif command == 'I':
+        newthread = threading.Thread(target=recvInputUser(cmd[1:]))
+        newthread.start()
+        #recvInputUser(cmd[1:])
+    elif command == 'N':
+        newthread = threading.Thread(target=recvInputRegisterName(cmd[1:]))
+        newthread.start()
+        #recvInputRegisterName(cmd[1:])
+    elif command == 'C':
+        newthread = threading.Thread(target=recvInputComm(cmd[1:]))
+        newthread.start()
+        #recvInputComm(cmd[1:])
+    elif command == 'L':
+        newthread = threading.Thread(target=recvInputLogin(cmd[1:]))
+        newthread.start()
+        #recvInputLogin(cmd[1:])
+    elif command == 'R':
+        newthread = threading.Thread(target=recvInputRegister(cmd[1:]))
+        newthread.start()
+        #recvInputRegister(cmd[1:])
+    elif command == 'F':
+        recvUpload(cmd[1:])
+    elif command == 'D':
+        recvDownload(cmd[1:])
+    elif command == 'U':
+        global user
+        user = cmd[1:]
+    elif command == 'Q':
+        # Logout
+        logout()
+    #DEBUG_i += 1
+
 
 def logout():
+    sendShutdown()
     soc.close()
     exit()
 
@@ -140,8 +159,31 @@ def sendRegister(resp):
 def sendSize(resp):
     sendToServer('F' + resp)
 
-def sendFile(data):
-    soc.send(b'F'+data)
+def sendShutdown():
+    sendToServer('S')
+
+
+# def ping_server():
+#     sendToServer('P')
+#     ready = select.select([soc], [], [], 2)
+#     if ready[0]:
+#         response = soc.recv(1024).decode('utf-8')
+#         commands = response.split('\u23F9')
+        
+#         # Check for logout
+#         for cmd in commands:
+#             if cmd == 'Q':
+#                 logout()
+        
+#         # Running any commands
+#         for cmd in commands:
+#             run_command(cmd)
+#     else:
+#         #server shutdown
+#         print('Server shutdown')
+#         soc.close()
+#         exit()
+
 
 
 if __name__ == "__main__":
@@ -158,6 +200,8 @@ if __name__ == "__main__":
         soc = socket(AF_INET, SOCK_STREAM)
         soc.connect((serverName, serverPort))
         sendToServer('Hello')
+        #ping_thread = threading.Thread(target=ping_server)
+        #ping_thread.start()
 
         while True:
             recvFromServer()
