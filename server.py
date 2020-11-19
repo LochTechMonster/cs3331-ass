@@ -703,10 +703,8 @@ def typeUsername(message, soc):
     '''
     result = findUsername(message)
     if result:
-        if result in curr_users:
-            sendError('User already logged in', soc)
-            sendInputUser('Enter your username:', soc)
-        else:
+        
+        
             sendName(result.split()[0], soc)
             sendInputLogin('Enter password:', soc)
     else:
@@ -743,14 +741,18 @@ def typeLogin(message, soc):
     result = findUsername(inUser)
     storedPass = result.split()[1]
     if storedPass == inPass:
-        curr_users.append(inUser)
-        sendMessage('Welcome to the forum', soc)
-        print(inUser + ' successful login')
-        sendInputComm(soc)
+        if result in curr_users:
+            sendError('User already logged in', soc)
+            sendInputUser('Enter your username:', soc)
+        else:
+            curr_users.append(inUser)
+            sendMessage('Welcome to the forum', soc)
+            print(inUser + ' successful login')
+            sendInputComm(soc)
     else:
         sendError('Incorrect password', soc)
         print(inUser + ' incorrect password')
-        sendInputLogin('Enter username:', soc)
+        sendInputUser('Enter username:', soc)
 
 def typeRegister(message, soc):
     '''
